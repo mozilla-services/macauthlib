@@ -43,18 +43,12 @@ class TestSignatures(unittest.TestCase):
             "nonce": "dj83hs9s"
         }
         key = "489dks293j39"
-        sigstr = "1336363200\n"\
-                 "dj83hs9s\n"\
-                 "GET\n"\
-                 "/resource/1?b=1&a=2\n"\
-                 "example.com\n"\
-                 "80\n"\
-                 "\n"
         sig = "bhCQXTVyfj5cmA9uKkPFx1zeOXM="
         req = Request.from_bytes(req)
         mysig = get_signature(req, key, params=params)
         # XXX: disagrees with spec, but I'm wondering if spec is broken..?
-        # self.assertEquals(sig, mysig)
+        if False:
+            self.assertEquals(sig, mysig)
 
     def test_sign_request_throws_away_other_auth_params(self):
         req = Request.blank("/")
@@ -136,6 +130,6 @@ class TestSignatures(unittest.TestCase):
         sign_request(req, "myid", "mykey")
         signature = parse_authz_header(req)["mac"]
         authz = req.environ["HTTP_AUTHORIZATION"]
-        authz = authz.replace(signature, "XXX"+signature)
+        authz = authz.replace(signature, "XXX" + signature)
         req.environ["HTTP_AUTHORIZATION"] = authz
         self.assertFalse(check_signature(req, "mykey"))

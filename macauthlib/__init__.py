@@ -33,7 +33,6 @@ __version__ = "%d.%d.%d%s" % __ver_tuple__
 
 
 import os
-import re
 import time
 import hmac
 from hashlib import sha1
