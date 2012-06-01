@@ -10,6 +10,17 @@ Class for managing a cache of nonces.
 import time
 import heapq
 import threading
+import collections
+
+
+class KeyExistsError(KeyError):
+    """Error raised when trying to add a key that already exists."""
+
+    def __init__(self, key, value):
+        msg = "Key %r already exists" % (key,)
+        super(KeyExistsError, self).__init__(msg)
+        self.key = key
+        self.value = value
 
 
 class NonceCache(object):
@@ -60,27 +71,32 @@ class NonceCache(object):
 
     def add_nonce(self, id, timestamp, nonce):
         """Add the given nonce to the cache."""
-        # If this is the first nonce for that id, calculate
+        # If this is the first nonce for that id, we must calculate
         # the clock skew and initialise the cache of used nonces.
-        # This could race if multiple requests come in for the
-        # same id, but we consider it an acceptable risk.
         try:
             (skew, nonces) = self._ids.get(id)
         except KeyError:
             server_time = time.time()
             skew = server_time - timestamp
             nonces = Cache(self.nonce_timeout, self.max_size, self._cache_lock)
-            self._ids.set(id, (skew, nonces))
+            # Insertion could race if multiple requests come in for an id.
+            try:
+                (skew, nonces) = self._ids.set(id, (skew, nonces))
+            except KeyExistsError, exc:
+                (skew, nonces) = exc.value
         # Store the nonce according to the adjusted time.
         timestamp = timestamp + skew
         nonces.set(nonce, True, timestamp)
+
+
+CacheItem = collections.namedtuple("CacheItem", "value timestamp")
 
 
 class Cache(object):
     """A simple in-memory cache with automatic timestamp-based purging.
 
     This class provides a very simple in-memory cache.  Along with a dict
-    for fast lookup of cached items, it maintains a queue of items and their
+    for fast lookup of cached values, it maintains a queue of values and their
     timestamps so that they can be purged in order as they expire.
     """
 
@@ -97,49 +113,63 @@ class Cache(object):
 
     def __iter__(self):
         now = time.time()
-        for key, (timestamp, value) in self.items.iteritems():
-            if timestamp + self.timeout >= now:
+        for key, item in self.items.iteritems():
+            if item.timestamp + self.timeout >= now:
                 yield key
 
     def __contains__(self, key):
         try:
-            timestamp, _ = self.items[key]
+            item = self.items[key]
         except KeyError:
             return False
-        if timestamp + self.timeout < time.time():
+        if item.timestamp + self.timeout < time.time():
             return False
         return True
 
     def get(self, key):
-        timestamp, value = self.items[key]
-        if timestamp + self.timeout < time.time():
+        item = self.items[key]
+        if item.timestamp + self.timeout < time.time():
             raise KeyError(key)
-        return value
+        return item.value
 
     def set(self, key, value, timestamp=None):
         now = time.time()
         if timestamp is None:
             timestamp = now
+        purge_deadline = now - self.timeout
+        item = CacheItem(value, timestamp)
         with self.purge_lock:
+            # Refuse to set duplicate keys in the cache, unless it has expired.
+            old_item = self.items.get(key)
+            if old_item is not None and old_item.timestamp >= purge_deadline:
+                raise KeyExistsError(key, old_item.value)
             # This try-except catches the case where we purge
             # all items from the queue, producing an IndexError.
             try:
                 # Ensure we stay below max_size, if defined.
                 if self.max_size:
                     while len(self.items) >= self.max_size:
-                        (_, old_key) = heapq.heappop(self.purge_queue)
-                        del self.items[old_key]
+                        self._purge_item()
                 # Purge a few expired items to make room.
                 # Don't purge *all* of them, so we don't pause for too long.
-                purge_deadline = now - self.timeout
                 for _ in xrange(5):
                     (old_timestamp, old_key) = self.purge_queue[0]
                     if old_timestamp >= purge_deadline:
                         break
-                    heapq.heappop(self.purge_queue)
-                    del self.items[old_key]
+                    self._purge_item()
             except IndexError:
                 pass
             # Add the new item into both queue and map.
-            self.items[key] = (timestamp, value)
+            self.items[key] = item
             heapq.heappush(self.purge_queue, (timestamp, key))
+            return value
+
+    def _purge_item(self):
+        """Purge the topmost item in the queue."""
+        # We have to take a little care here, because the entry in self.items
+        # might have overwritten the entry which appears at head of queue.
+        # Check that timestamps match before purging.
+        (timestamp, key) = heapq.heappop(self.purge_queue)
+        item = self.items.pop(key, None)
+        if item is not None and item.timestamp != timestamp:
+            self.items[key] = item

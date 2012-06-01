@@ -5,7 +5,7 @@
 import unittest
 import time
 
-from macauthlib.noncecache import NonceCache, Cache
+from macauthlib.noncecache import NonceCache, Cache, KeyExistsError
 
 
 class TestNonces(unittest.TestCase):
@@ -66,3 +66,15 @@ class TestNonces(unittest.TestCase):
         self.assertEquals(cache.get("you"), "today?")
         self.assertEquals(cache.get("how"), "are")
         self.assertRaises(KeyError, cache.get, "hello")
+
+    def test_that_you_cant_set_duplicate_cache_keys(self):
+        timeout = 0.1
+        cache = Cache(timeout)
+        cache.set("hello", "world")
+        try:
+            cache.set("hello", "spamityspam")
+        except KeyExistsError, e:
+            self.assertEquals(e.key, "hello")
+            self.assertEquals(e.value, "world")
+        else:
+            assert False, "KeyExistsError was not raised"
