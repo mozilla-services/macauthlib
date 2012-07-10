@@ -13,7 +13,7 @@ with open(os.path.join(here, 'CHANGES.txt')) as f:
 requires = ['webob']
 
 setup(name='macauthlib',
-      version='0.2.0',
+      version='0.3.0',
       description='macauth',
       long_description=README + '\n\n' + CHANGES,
       license='MPLv2.0',

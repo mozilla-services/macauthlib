@@ -57,26 +57,18 @@ class NonceCache(object):
     def __len__(self):
         return sum(len(self._ids.get(key)[1]) for key in self._ids)
 
-    def is_fresh(self, id, timestamp, nonce):
-        """Check if the given timestamp+nonce is fresh for the given id."""
-        # Get the clock skew to use for calculations.
-        # If we've never seen this id before, it must be fresh.
-        try:
-            (skew, nonces) = self._ids.get(id)
-        except KeyError:
-            return True
-        # If the adjusted timestamps is too old or too new, then
-        # we can reject it without even looking at the nonce.
-        timestamp = timestamp + skew
-        if abs(timestamp - time.time()) >= self.nonce_ttl:
-            return False
-        # Otherwise, we need to look in the per-id nonce cache.
-        return nonce not in nonces
+    def check_nonce(self, id, timestamp, nonce):
+        """Check if the given timestamp+nonce is fresh for the given id.
 
-    def add_nonce(self, id, timestamp, nonce):
-        """Add the given nonce to the cache."""
-        # If this is the first nonce for that id, we must calculate
-        # the clock skew and initialise the cache of used nonces.
+        This method checks that the given timestamp+nonce has not previously
+        been seen for the given id.  It returns True if the nonce is fresh
+        and False if not.
+
+        Fresh nonces are added to the cache, so that subsequent checks of the
+        same nonce will return False.
+        """
+        # Get the clock skew to use for calculations.
+        # If no skew is cached, calculate it.
         try:
             (skew, nonces) = self._ids.get(id)
         except KeyError:
@@ -88,9 +80,19 @@ class NonceCache(object):
                 self._ids.set(id, (skew, nonces))
             except KeyExistsError, exc:
                 (skew, nonces) = exc.value
-        # Store the nonce according to the adjusted time.
+        # If the adjusted timestamp is too old or too new, then
+        # we can reject it without even looking at the nonce.
+        # XXX TODO: we really need a monotonic clock here.
+        # If the system time gets adjusted then we could be in trouble.
         timestamp = timestamp + skew
+        if abs(timestamp - time.time()) >= self.nonce_ttl:
+            return False
+        # Otherwise, we need to look in the per-id nonce cache.
+        if nonce in nonces:
+            return False
+        # The nonce is fresh, add it into the cache.
         nonces.set(nonce, True, timestamp)
+        return True
 
 
 CacheItem = collections.namedtuple("CacheItem", "value timestamp")

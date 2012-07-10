@@ -25,7 +25,7 @@ this::
 """
 
 __ver_major__ = 0
-__ver_minor__ = 2
+__ver_minor__ = 3
 __ver_patch__ = 0
 __ver_sub__ = ""
 __ver_tuple__ = (__ver_major__, __ver_minor__, __ver_patch__, __ver_sub__)
@@ -136,16 +136,15 @@ def check_signature(request, key, hashmod=None, params=None, nonces=None):
         id = params["id"]
         timestamp = int(params["ts"])
         nonce = params["nonce"]
-        # Check freshness of the nonce.
-        if not nonces.is_fresh(id, timestamp, nonce):
-            return False
         # Check validity of the signature.
         expected_sig = get_signature(request, key, hashmod, params)
         if strings_differ(params["mac"], expected_sig):
             return False
-        # Cache the nonce to prevent replay attacks.
-        # We do this *after* successul auth to avoid DOS attacks.
-        nonces.add_nonce(id, timestamp, nonce)
+        # Check freshness of the nonce.
+        # This caches it so future use of the nonce will fail.
+        # We do this *after* successul sig check to avoid DOS attacks.
+        if not nonces.check_nonce(id, timestamp, nonce):
+            return False
     except (KeyError, ValueError):
         return False
     return True

@@ -1,3 +1,10 @@
+0.3.0 - ????-??-??
+==================
+
+ * Simplify API of the NonceCache class; it now provides a single method
+   check_nonce() rather than separate is_fresh() and add_nonce() methods.
+
+
 0.2.0 - 2012-06-01
 ==================
 
