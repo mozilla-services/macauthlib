@@ -13,6 +13,10 @@ import threading
 import collections
 
 
+DEFAULT_NONCE_TTL = 30  # thirty seconds
+DEFAULT_ID_TTL = 3600   # one hour
+
+
 class KeyExistsError(KeyError):
     """Error raised when trying to add a key that already exists."""
 
@@ -39,16 +43,16 @@ class NonceCache(object):
     the server up to replay attacks.
     """
 
-    def __init__(self, nonce_timeout=None, id_timeout=None, max_size=None):
-        if nonce_timeout is None:
-            nonce_timeout = 60
-        if id_timeout is None:
-            id_timeout = nonce_timeout
-        self.nonce_timeout = nonce_timeout
-        self.id_timeout = id_timeout
+    def __init__(self, nonce_ttl=None, id_ttl=None, max_size=None):
+        if nonce_ttl is None:
+            nonce_ttl = DEFAULT_NONCE_TTL
+        if id_ttl is None:
+            id_ttl = DEFAULT_ID_TTL
+        self.nonce_ttl = nonce_ttl
+        self.id_ttl = id_ttl
         self.max_size = max_size
         self._cache_lock = threading.Lock()
-        self._ids = Cache(id_timeout, max_size, self._cache_lock)
+        self._ids = Cache(id_ttl, max_size, self._cache_lock)
 
     def __len__(self):
         return sum(len(self._ids.get(key)[1]) for key in self._ids)
@@ -64,7 +68,7 @@ class NonceCache(object):
         # If the adjusted timestamps is too old or too new, then
         # we can reject it without even looking at the nonce.
         timestamp = timestamp + skew
-        if abs(timestamp - time.time()) >= self.nonce_timeout:
+        if abs(timestamp - time.time()) >= self.nonce_ttl:
             return False
         # Otherwise, we need to look in the per-id nonce cache.
         return nonce not in nonces
@@ -78,10 +82,10 @@ class NonceCache(object):
         except KeyError:
             server_time = time.time()
             skew = server_time - timestamp
-            nonces = Cache(self.nonce_timeout, self.max_size, self._cache_lock)
+            nonces = Cache(self.nonce_ttl, self.max_size, self._cache_lock)
             # Insertion could race if multiple requests come in for an id.
             try:
-                (skew, nonces) = self._ids.set(id, (skew, nonces))
+                self._ids.set(id, (skew, nonces))
             except KeyExistsError, exc:
                 (skew, nonces) = exc.value
         # Store the nonce according to the adjusted time.
@@ -100,10 +104,10 @@ class Cache(object):
     timestamps so that they can be purged in order as they expire.
     """
 
-    def __init__(self, timeout, max_size=None, purge_lock=None):
+    def __init__(self, ttl, max_size=None, purge_lock=None):
         assert not max_size or max_size > 0
         self.items = {}
-        self.timeout = timeout
+        self.ttl = ttl
         self.max_size = max_size
         self.purge_lock = purge_lock or threading.Lock()
         self.purge_queue = []
@@ -114,7 +118,7 @@ class Cache(object):
     def __iter__(self):
         now = time.time()
         for key, item in self.items.iteritems():
-            if item.timestamp + self.timeout >= now:
+            if item.timestamp + self.ttl >= now:
                 yield key
 
     def __contains__(self, key):
@@ -122,13 +126,13 @@ class Cache(object):
             item = self.items[key]
         except KeyError:
             return False
-        if item.timestamp + self.timeout < time.time():
+        if item.timestamp + self.ttl < time.time():
             return False
         return True
 
     def get(self, key):
         item = self.items[key]
-        if item.timestamp + self.timeout < time.time():
+        if item.timestamp + self.ttl < time.time():
             raise KeyError(key)
         return item.value
 
@@ -136,7 +140,7 @@ class Cache(object):
         now = time.time()
         if timestamp is None:
             timestamp = now
-        purge_deadline = now - self.timeout
+        purge_deadline = now - self.ttl
         item = CacheItem(value, timestamp)
         with self.purge_lock:
             # Refuse to set duplicate keys in the cache, unless it has expired.
@@ -162,7 +166,6 @@ class Cache(object):
             # Add the new item into both queue and map.
             self.items[key] = item
             heapq.heappush(self.purge_queue, (timestamp, key))
-            return value
 
     def _purge_item(self):
         """Purge the topmost item in the queue."""

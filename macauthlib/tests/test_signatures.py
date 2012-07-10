@@ -48,7 +48,7 @@ class TestSignatures(unittest.TestCase):
         mysig = get_signature(req, key, params=params)
         # XXX: disagrees with spec, but I'm wondering if spec is broken..?
         if False:
-            self.assertEquals(sig, mysig)
+            self.assertEquals(sig, mysig)  # pragma: nocover
 
     def test_sign_request_throws_away_other_auth_params(self):
         req = Request.blank("/")
