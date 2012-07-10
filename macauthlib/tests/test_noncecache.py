@@ -15,30 +15,44 @@ class TestNonceCache(unittest.TestCase):
         self.assertEquals(nc.nonce_ttl,  30)
         self.assertEquals(nc.id_ttl,  60 * 60)
 
-    def test_operation(self):
+    def test_operation(self, now=time.time):
         timeout = 0.1
         nc = NonceCache(nonce_ttl=timeout, id_ttl=1)
         # Initially nothing is cached, so all nonces as fresh.
         self.assertEquals(nc.nonce_ttl, 0.1)
         self.assertEquals(len(nc), 0)
-        self.assertTrue(nc.check_nonce("id", time.time(), "abc"))
+        self.assertTrue(nc.check_nonce("id", now(), "abc"))
         # After adding a nonce, it should contain just that item.
         self.assertEquals(len(nc), 1)
-        self.assertFalse(nc.check_nonce("id", time.time(), "abc"))
-        self.assertTrue(nc.check_nonce("id", time.time(), "xyz"))
+        self.assertFalse(nc.check_nonce("id", now(), "abc"))
+        self.assertTrue(nc.check_nonce("id", now(), "xyz"))
         # After the timeout passes, the nonce should be expired.
         time.sleep(timeout)
-        self.assertTrue(nc.check_nonce("id", time.time(), "abc"))
+        self.assertTrue(nc.check_nonce("id", now(), "abc"))
         # Writing to the cache purges expired nonces but keeps valid ones.
         time.sleep(timeout / 2)
-        self.assertTrue(nc.check_nonce("id", time.time(), "def"))
-        self.assertFalse(nc.check_nonce("id", time.time(), "abc"))
-        self.assertFalse(nc.check_nonce("id", time.time(), "def"))
-        self.assertTrue(nc.check_nonce("id", time.time(), "xyz"))
+        self.assertTrue(nc.check_nonce("id", now(), "def"))
+        self.assertFalse(nc.check_nonce("id", now(), "abc"))
+        self.assertFalse(nc.check_nonce("id", now(), "def"))
+        self.assertTrue(nc.check_nonce("id", now(), "xyz"))
         time.sleep(timeout / 2)
-        self.assertTrue(nc.check_nonce("id", time.time(), "abc"))
-        self.assertFalse(nc.check_nonce("id", time.time(), "def"))
-        self.assertFalse(nc.check_nonce("id", time.time(), "xyz"))
+        self.assertTrue(nc.check_nonce("id", now(), "abc"))
+        self.assertFalse(nc.check_nonce("id", now(), "def"))
+        self.assertFalse(nc.check_nonce("id", now(), "xyz"))
+        # If the timestamp is too old, even a fresh nonce will fail the check.
+        self.assertFalse(nc.check_nonce("id", now() - 2 * timeout, "ghi"))
+        self.assertFalse(nc.check_nonce("id", now() + 2 * timeout, "ghi"))
+        self.assertTrue(nc.check_nonce("id", now(), "ghi"))
+
+    def test_operation_with_backward_clock_skew(self):
+        def now():
+            return time.time() - 13
+        self.test_operation(now=now)
+
+    def test_operation_with_forward_clock_skew(self):
+        def now():
+            return time.time() + 7
+        self.test_operation(now=now)
 
     def test_that_cache_items_are_ungettable_once_expired(self):
         timeout = 0.1
