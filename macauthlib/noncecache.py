@@ -78,8 +78,8 @@ class NonceCache(object):
             # Insertion could race if multiple requests come in for an id.
             try:
                 self._ids.set(id, (skew, nonces))
-            except KeyExistsError, exc:
-                (skew, nonces) = exc.value
+            except KeyExistsError, exc:     # pragma nocover
+                (skew, nonces) = exc.value  # pragma nocover
         # If the adjusted timestamp is too old or too new, then
         # we can reject it without even looking at the nonce.
         # XXX TODO: we really need a monotonic clock here.
@@ -177,4 +177,4 @@ class Cache(object):
         (timestamp, key) = heapq.heappop(self.purge_queue)
         item = self.items.pop(key, None)
         if item is not None and item.timestamp != timestamp:
-            self.items[key] = item
+            self.items[key] = item  # pragma nocover
