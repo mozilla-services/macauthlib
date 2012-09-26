@@ -7,8 +7,8 @@ A library for implementing the MAC Access Authentication protocol:
 
     http://tools.ietf.org/html/draft-ietf-oauth-v2-http-mac-01
 
-Typical use for a client program would be to sign a WebOb request object
-like this::
+Typical use for a client program would be to sign a request object like
+this::
 
     macauthlib.sign_request(request, id, key)
 
@@ -45,6 +45,7 @@ from macauthlib.noncecache import NonceCache
 DEFAULT_NONCE_CACHE = None
 
 
+@utils.normalize_request_object
 def sign_request(request, id, key, hashmod=None, params=None):
     """Sign the given request using MAC access authentication.
 
@@ -69,8 +70,10 @@ def sign_request(request, id, key, hashmod=None, params=None):
     # Serialize the parameters back into the authz header.
     # WebOb has logic to do this that's not perfect, but good enough for us.
     request.authorization = ("MAC", params)
+    return request.headers["Authorization"]
 
 
+@utils.normalize_request_object
 def get_id(request, params=None):
     """Get the MAC id from the given request.
 
@@ -85,6 +88,7 @@ def get_id(request, params=None):
     return params.get("id", None)
 
 
+@utils.normalize_request_object
 def get_signature(request, key, hashmod=None, params=None):
     """Get the MAC signature for the given request.
 
@@ -104,6 +108,7 @@ def get_signature(request, key, hashmod=None, params=None):
     return b64encode(hmac.new(key, sigstr, hashmod).digest())
 
 
+@utils.normalize_request_object
 def check_signature(request, key, hashmod=None, params=None, nonces=None):
     """Check that the request is correctly signed with the given MAC key.
 
@@ -117,7 +122,8 @@ def check_signature(request, key, hashmod=None, params=None, nonces=None):
 
     If the "nonces" parameter is not None, it must be a NonceCache object
     used to check validity of the signature nonce.  If not specified then a
-    default global cache will be used.
+    default global cache will be used.  To disable nonce checking (e.g. during
+    testing) pass nonces=False.
     """
     global DEFAULT_NONCE_CACHE
     if nonces is None:
@@ -141,8 +147,9 @@ def check_signature(request, key, hashmod=None, params=None, nonces=None):
         # Check freshness of the nonce.
         # This caches it so future use of the nonce will fail.
         # We do this *after* successul sig check to avoid DOS attacks.
-        if not nonces.check_nonce(id, timestamp, nonce):
-            return False
+        if nonces is not False:
+            if not nonces.check_nonce(id, timestamp, nonce):
+                return False
     except (KeyError, ValueError):
         return False
     return True

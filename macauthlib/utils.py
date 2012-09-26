@@ -8,6 +8,16 @@ Low-level utility functions for macauthlib.
 """
 
 import re
+import functools
+
+import webob
+
+requests = None
+try:
+    import requests
+except ImportError:   # pragma nocover
+    pass              # pragma nocover
+
 
 # Regular expression matching a single param in the HTTP_AUTHORIZATION header.
 # This is basically <name>=<value> where <value> can be an unquoted token,
@@ -136,3 +146,53 @@ def strings_differ(string1, string2):
     for a, b in zip(string1, string2):
         invalid_bits += ord(a) ^ ord(b)
     return invalid_bits != 0
+
+
+def normalize_request_object(func):
+    """Decorator to normalize request into a WebOb request object.
+
+    This decorator can be applied to any function taking a request object
+    as its first argument, and will transparently convert other types of
+    request object into a webob.Request instance.  Currently supported
+    types for the request object are:
+
+        * webob.Request objects
+        * requests.Request objects
+        * WSGI environ dicts
+        * bytestrings containing request data
+        * file-like objects containing request data
+
+    If the input request object is mutable, then any changes that the wrapped
+    function makes to the request headers will be written back to it at exit.
+    """
+    @functools.wraps(func)
+    def wrapped_func(request, *args, **kwds):
+        orig_request = request
+        # Convert the incoming request object into a webob.Request.
+        if isinstance(orig_request, webob.Request):
+            pass
+        # A requests.Request object?
+        elif requests and isinstance(orig_request, requests.Request):
+            # Copy over only the details needed for the signature.
+            request = webob.Request.blank(orig_request.full_url)
+            request.method = orig_request.method
+            request.headers.update(orig_request.headers.iteritems())
+        # A WSGI environ dict?
+        elif isinstance(orig_request, dict):
+            request = webob.Request(orig_request)
+        # A bytestring?
+        elif isinstance(orig_request, str):
+            request = webob.Request.from_bytes(orig_request)
+        # A file-like object?
+        elif all(hasattr(orig_request, attr) for attr in ("read", "readline")):
+            request = webob.Request.from_file(orig_request)
+
+        # The wrapped function might modify headers.
+        # Write them back if the original request object is mutable.
+        try:
+            return func(request, *args, **kwds)
+        finally:
+            if requests and isinstance(orig_request, requests.Request):
+                orig_request.headers.update(request.headers)
+
+    return wrapped_func

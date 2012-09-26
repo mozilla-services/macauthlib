@@ -1,6 +1,11 @@
 PENDING
 =======
 
+ * Allow the main API functions to accept a WebOb Request object, a
+   requests Request object, or a WSGI environ dict as first argument.
+   This should make it easier to implement client programs.
+ * macauthlib.sign_request() now returns the Authorization header value, which
+   is useful if you pass it something immutable as the request to be signed.
  * Hide functions from macauthlib.utils that were previously available
    directly from macauthlib.  This will ensure users import them from the
    canonical location.

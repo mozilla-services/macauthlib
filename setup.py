@@ -12,6 +12,8 @@ with open(os.path.join(here, 'CHANGES.txt')) as f:
 
 requires = ['webob']
 
+tests_requires = requires + ['requests']
+
 setup(name='macauthlib',
       version='0.3.0',
       description='macauth',
