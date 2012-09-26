@@ -91,7 +91,7 @@ def get_normalized_request_string(request, params=None):
 
     If the "params" parameter is not None, it is assumed to be a pre-parsed
     dict of MAC parameters as one might find in the Authorization header.  If
-    it is missing or  None then the Authorization header from the request will
+    it is missing or None then the Authorization header from the request will
     be parsed to determine the necessary parameters.
     """
     if params is None:
