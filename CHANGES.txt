@@ -1,3 +1,11 @@
+PENDING
+=======
+
+ * Hide functions from macauthlib.utils that were previously available
+   directly from macauthlib.  This will ensure users import them from the
+   canonical location.
+
+
 0.3.0 - 2012-07-11
 ==================
 

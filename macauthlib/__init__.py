@@ -38,10 +38,8 @@ import hmac
 from hashlib import sha1
 from base64 import b64encode
 
+from macauthlib import utils
 from macauthlib.noncecache import NonceCache
-from macauthlib.utils import (get_normalized_request_string,
-                              parse_authz_header,
-                              strings_differ)
 
 # Global NonceCache instance used when a specific cache is not specified.
 DEFAULT_NONCE_CACHE = None
@@ -57,7 +55,7 @@ def sign_request(request, id, key, hashmod=None, params=None):
     """
     # Use explicitly-given parameters, or those from the request.
     if params is None:
-        params = parse_authz_header(request, {})
+        params = utils.parse_authz_header(request, {})
         if params and params.pop("scheme") != "MAC":
             params.clear()
     # Give sensible values to any parameters that weren't specified.
@@ -81,7 +79,7 @@ def get_id(request, params=None):
     require looking up the corresponding MAC secret key.
     """
     if params is None:
-        params = parse_authz_header(request, {})
+        params = utils.parse_authz_header(request, {})
     if params.get("scheme") != "MAC":
         return None
     return params.get("id", None)
@@ -99,10 +97,10 @@ def get_signature(request, key, hashmod=None, params=None):
     be parsed to determine the necessary parameters.
     """
     if params is None:
-        params = parse_authz_header(request, {})
+        params = utils.parse_authz_header(request, {})
     if hashmod is None:
         hashmod = sha1
-    sigstr = get_normalized_request_string(request, params)
+    sigstr = utils.get_normalized_request_string(request, params)
     return b64encode(hmac.new(key, sigstr, hashmod).digest())
 
 
@@ -127,7 +125,7 @@ def check_signature(request, key, hashmod=None, params=None, nonces=None):
         if nonces is None:
             nonces = DEFAULT_NONCE_CACHE = NonceCache()
     if params is None:
-        params = parse_authz_header(request, {})
+        params = utils.parse_authz_header(request, {})
     if params.get("scheme") != "MAC":
         return False
     # Any KeyError here indicates a missing parameter.
@@ -138,7 +136,7 @@ def check_signature(request, key, hashmod=None, params=None, nonces=None):
         nonce = params["nonce"]
         # Check validity of the signature.
         expected_sig = get_signature(request, key, hashmod, params)
-        if strings_differ(params["mac"], expected_sig):
+        if utils.strings_differ(params["mac"], expected_sig):
             return False
         # Check freshness of the nonce.
         # This caches it so future use of the nonce will fail.
