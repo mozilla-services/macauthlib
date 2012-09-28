@@ -66,7 +66,7 @@ function as an authentication hook when using the requests library, like this::
     import macauthlib
 
     # Hook up sign_request() to be called on every request.
-    auth_hook = functools.partial(macuathlib.sign_request, id="XXX", key="YYY")
+    auth_hook = functools.partial(macauthlib.sign_request, id="XXX", key="YYY")
     session = requests.session(hooks={"pre_request": auth_hook})
 
     # Then use the session as normal, and the auth is applied transparently.
