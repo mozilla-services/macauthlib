@@ -1,5 +1,5 @@
-PENDING
-=======
+0.4.0 - 2012-09-31
+==================
 
  * Allow the main API functions to accept a WebOb Request object, a
    requests Request object, or a WSGI environ dict as first argument.

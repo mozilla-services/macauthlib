@@ -15,7 +15,7 @@ requires = ['webob']
 tests_requires = requires + ['requests']
 
 setup(name='macauthlib',
-      version='0.3.0',
+      version='0.4.0',
       description='macauth',
       long_description=README + '\n\n' + CHANGES,
       license='MPLv2.0',
@@ -31,5 +31,5 @@ setup(name='macauthlib',
       include_package_data=True,
       zip_safe=False,
       install_requires=requires,
-      tests_require=requires,
+      tests_require=tests_requires,
       test_suite="macauthlib")
