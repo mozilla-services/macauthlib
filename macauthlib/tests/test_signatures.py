@@ -15,28 +15,28 @@ from macauthlib.utils import parse_authz_header
 class TestSignatures(unittest.TestCase):
 
     def test_get_id_works_on_valid_header(self):
-        req = "GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"
+        req = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"
         req = Request.from_bytes(req)
         req.authorization = ("MAC", {"id": "user1", "ts": "1", "nonce": "2"})
         self.assertEquals(get_id(req), "user1")
 
     def test_get_id_returns_none_for_other_auth_schemes(self):
-        req = "GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"
+        req = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"
         req = Request.from_bytes(req)
         req.authorization = ("OAuth", {"id": "user1", "ts": "1", "nonce": "2"})
         self.assertEquals(get_id(req), None)
 
     def test_get_id_returns_none_if_the_id_is_missing(self):
-        req = "GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"
+        req = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"
         req = Request.from_bytes(req)
         req.authorization = ("MAC", {"ts": "1", "nonce": "2"})
         self.assertEquals(get_id(req), None)
 
     def test_get_signature_against_example_from_spec(self):
         # This is the example used in Section 1.1 of RFC-TODO
-        req = "GET /resource/1?b=1&a=2 HTTP/1.1\r\n"\
-              "Host: example.com\r\n"\
-              "\r\n"
+        req = b"GET /resource/1?b=1&a=2 HTTP/1.1\r\n"\
+              b"Host: example.com\r\n"\
+              b"\r\n"
         params = {
             "id": "h480djs93hd8",
             "ts": "1336363200",
@@ -63,7 +63,7 @@ class TestSignatures(unittest.TestCase):
           "vmo1txkttblmn51u2p3zk2xiy16hgvm5ok8qiv1yyi86ffjzy9zj0ez9x6wnvbx7",
           "b8u1cc5iiio5o319og7hh8faf2gi5ym4aq0zwf112cv1287an65fudu5zj7zo7dz",
         )
-        req = "GET /alias/ HTTP/1.1\r\nHost: 10.250.2.176\r\n\r\n"
+        req = b"GET /alias/ HTTP/1.1\r\nHost: 10.250.2.176\r\n\r\n"
         req = Request.from_bytes(req)
         req.authorization = ("MAC", {"ts": "1329181221", "nonce": "wGX71"})
         sig = "jzh5chjQc2zFEvLbyHnPdX11Yck="
@@ -71,13 +71,13 @@ class TestSignatures(unittest.TestCase):
         self.assertEquals(sig, mysig)
 
     def test_check_signature_errors_when_missing_id(self):
-        req = "GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"
+        req = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"
         req = Request.from_bytes(req)
         req.authorization = ("MAC", {"ts": "1", "nonce": "2"})
         self.assertFalse(check_signature(req, "secretkeyohsecretkey"))
 
     def test_check_signature_fails_with_non_mac_scheme(self):
-        req = "GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"
+        req = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"
         req = Request.from_bytes(req)
         sign_request(req, "myid", "mykey")
         req.authorization = ("OAuth", req.authorization[1])

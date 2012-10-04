@@ -2,8 +2,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
-import unittest
 import time
+import unittest
 
 from macauthlib.noncecache import NonceCache, Cache, KeyExistsError
 
@@ -83,7 +83,7 @@ class TestNonceCache(unittest.TestCase):
         cache.set("hello", "world")
         try:
             cache.set("hello", "spamityspam")
-        except KeyExistsError, e:
+        except KeyExistsError as e:
             self.assertEquals(e.key, "hello")
             self.assertEquals(e.value, "world")
         else:

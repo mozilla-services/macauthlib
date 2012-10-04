@@ -90,11 +90,11 @@ class TestUtils(unittest.TestCase):
 
     def test_normalized_request_string_against_example_from_spec(self):
         # This is the example used in Section 3.2.1 of RFC-TODO
-        req = "POST /request?b5=%3D%253D&a3=a&c%40=&a2=r%20b&c2&a3=2+q"\
-              " HTTP/1.1\r\n"\
-              "Host: example.com\r\n"\
-              "\r\n"\
-              "Hello World!"
+        req = b"POST /request?b5=%3D%253D&a3=a&c%40=&a2=r%20b&c2&a3=2+q"\
+              b" HTTP/1.1\r\n"\
+              b"Host: example.com\r\n"\
+              b"\r\n"\
+              b"Hello World!"
         params = {
             "ts": "264095",
             "nonce": "7d8f3e4a",
@@ -113,7 +113,7 @@ class TestUtils(unittest.TestCase):
         self.assertEquals(sigstr, mysigstr)
 
     def test_normalized_request_string_with_custom_port(self):
-        req = "GET / HTTP/1.1\r\nHost: example.com:88\r\n\r\n"
+        req = b"GET / HTTP/1.1\r\nHost: example.com:88\r\n\r\n"
         req = Request.from_bytes(req)
         req.authorization = ("MAC", {"ts": "1", "nonce": "2"})
         sigstr = "1\n2\nGET\n/\nexample.com\n88\n\n"
@@ -121,7 +121,7 @@ class TestUtils(unittest.TestCase):
         self.assertEquals(sigstr, mysigstr)
 
     def test_normalized_request_string_with_https_scheme(self):
-        req = "GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"
+        req = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"
         req = Request.from_bytes(req)
         req.authorization = ("MAC", {"ts": "1", "nonce": "2"})
         req.scheme = "https"
@@ -130,7 +130,7 @@ class TestUtils(unittest.TestCase):
         self.assertEquals(sigstr, mysigstr)
 
     def test_normalized_request_string_errors_when_no_default_port(self):
-        req = "GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"
+        req = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"
         req = Request.from_bytes(req)
         req.authorization = ("MAC", {"ts": "1", "nonce": "2"})
         req.scheme = "httptypo"

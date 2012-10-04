@@ -7,8 +7,10 @@ Low-level utility functions for macauthlib.
 
 """
 
+import sys
 import re
 import functools
+import base64
 
 import webob
 
@@ -16,7 +18,28 @@ requests = None
 try:
     import requests
 except ImportError:   # pragma nocover
-    pass              # pragma nocover
+    pass
+
+
+if sys.version_info > (3,):  # pragma: nocover
+
+    def iteritems(d):
+        """Efficiently iterate over dict items."""
+        return d.items()
+
+    def b64encode(data):
+        """Base64-encode bytes data into a native string."""
+        return base64.b64encode(data).decode("ascii")
+
+else:  # pragma: nocover
+
+    def iteritems(d):  # NOQA
+        """Efficiently iterate over dict items."""
+        return d.iteritems()
+
+    def b64encode(data):  # NOQA
+        """Base64-encode bytes data into a native string."""
+        return base64.b64encode(data)
 
 
 # Regular expression matching a single param in the HTTP_AUTHORIZATION header.
@@ -176,12 +199,12 @@ def normalize_request_object(func):
             # Copy over only the details needed for the signature.
             request = webob.Request.blank(orig_request.full_url)
             request.method = orig_request.method
-            request.headers.update(orig_request.headers.iteritems())
+            request.headers.update(iteritems(orig_request.headers))
         # A WSGI environ dict?
         elif isinstance(orig_request, dict):
             request = webob.Request(orig_request)
         # A bytestring?
-        elif isinstance(orig_request, str):
+        elif isinstance(orig_request, bytes):
             request = webob.Request.from_bytes(orig_request)
         # A file-like object?
         elif all(hasattr(orig_request, attr) for attr in ("read", "readline")):

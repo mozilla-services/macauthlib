@@ -36,10 +36,10 @@ import os
 import time
 import hmac
 from hashlib import sha1
-from base64 import b64encode
 
 from macauthlib import utils
 from macauthlib.noncecache import NonceCache
+
 
 # Global NonceCache instance used when a specific cache is not specified.
 DEFAULT_NONCE_CACHE = None
@@ -64,10 +64,10 @@ def sign_request(request, id, key, hashmod=None, params=None):
     if "ts" not in params:
         params["ts"] = str(int(time.time()))
     if "nonce" not in params:
-        params["nonce"] = os.urandom(5).encode("hex")
+        params["nonce"] = utils.b64encode(os.urandom(5))
     # Calculate the signature and add it to the parameters.
     params["mac"] = get_signature(request, key, hashmod, params)
-    # Serialize the parameters back into the authz header.
+    # Serialize the parameters back into the authz header, and return it.
     # WebOb has logic to do this that's not perfect, but good enough for us.
     request.authorization = ("MAC", params)
     return request.headers["Authorization"]
@@ -105,7 +105,11 @@ def get_signature(request, key, hashmod=None, params=None):
     if hashmod is None:
         hashmod = sha1
     sigstr = utils.get_normalized_request_string(request, params)
-    return b64encode(hmac.new(key, sigstr, hashmod).digest())
+    # The spec mandates that ids and keys must be ascii.
+    # It's therefore safe to encode like this before doing the signature.
+    sigstr = sigstr.encode("ascii")
+    key = key.encode("ascii")
+    return utils.b64encode(hmac.new(key, sigstr, hashmod).digest())
 
 
 @utils.normalize_request_object

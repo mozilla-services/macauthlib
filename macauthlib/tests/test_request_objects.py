@@ -2,8 +2,13 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import sys
 import unittest
-import StringIO
+
+if sys.version_info > (3,):  # pragma: nocover
+    from io import BytesIO
+else:  # pragma: nocover
+    from StringIO import StringIO as BytesIO  # NOQA
 
 import webob
 import requests
@@ -14,21 +19,21 @@ from macauthlib import sign_request, check_signature
 # We test a bunch of different ways to input that request into the lib
 # and check whether they all agree on the signature.
 
-TEST_REQ = "POST /resource/1?b=1&a=2 HTTP/1.1\r\n"\
-           "Host: example.com\r\n"\
-           "Content-Length: 11\r\n"\
-           "\r\n"\
-           "hello world"
+TEST_REQ = b"POST /resource/1?b=1&a=2 HTTP/1.1\r\n"\
+           b"Host: example.com\r\n"\
+           b"Content-Length: 11\r\n"\
+           b"\r\n"\
+           b"hello world"
 
-TEST_REQ_SIGNED = "POST /resource/1?b=1&a=2 HTTP/1.1\r\n"\
-                  "Host: example.com\r\n"\
-                  "Content-Length: 11\r\n"\
-                  "Authorization: MAC nonce=\"dj83hs9s\","\
-                  "                   mac=\"SIBz/j9mI1Ba2Y+10wdwbQGv2Yk=\","\
-                  "                   id=\"h480djs93hd8\","\
-                  "                   ts=\"1336363200\"\r\n"\
-                  "\r\n"\
-                  "hello world"
+TEST_REQ_SIGNED = b"POST /resource/1?b=1&a=2 HTTP/1.1\r\n"\
+                  b"Host: example.com\r\n"\
+                  b"Content-Length: 11\r\n"\
+                  b"Authorization: MAC nonce=\"dj83hs9s\","\
+                  b"                   mac=\"SIBz/j9mI1Ba2Y+10wdwbQGv2Yk=\","\
+                  b"                   id=\"h480djs93hd8\","\
+                  b"                   ts=\"1336363200\"\r\n"\
+                  b"\r\n"\
+                  b"hello world"
 
 TEST_PARAMS = {
     "id": "h480djs93hd8",
@@ -60,7 +65,7 @@ class TestRequestObjects(unittest.TestCase):
             "HTTP_CONTENT_LENGTH": "11",
             "PATH_INFO": "/resource/1",
             "QUERY_STRING": "b=1&a=2",
-            "wsgi.input": StringIO.StringIO("hello world")
+            "wsgi.input": BytesIO(b"hello world")
         }
         assert not check_signature(req, TEST_KEY, nonces=False)
         authz = sign_request(req, TEST_ID, TEST_KEY, params=TEST_PARAMS)
@@ -74,12 +79,12 @@ class TestRequestObjects(unittest.TestCase):
         assert check_signature(TEST_REQ_SIGNED, TEST_KEY, nonces=False)
 
     def test_passing_filelike_as_request_object(self):
-        req = StringIO.StringIO(TEST_REQ)
+        req = BytesIO(TEST_REQ)
         assert not check_signature(req, TEST_KEY, nonces=False)
-        req = StringIO.StringIO(TEST_REQ)
+        req = BytesIO(TEST_REQ)
         authz = sign_request(req, TEST_ID, TEST_KEY, params=TEST_PARAMS)
         assert TEST_SIG in authz
-        req = StringIO.StringIO(TEST_REQ_SIGNED)
+        req = BytesIO(TEST_REQ_SIGNED)
         assert check_signature(req, TEST_KEY, nonces=False)
 
     def test_passing_requests_request_as_request_object(self):
@@ -108,5 +113,5 @@ class TestRequestObjects(unittest.TestCase):
             session.post("http://example.com/resource/1",
                          params=[("b", "1"), ("a", "2")],
                          data="hello world")
-        except RuntimeError, e:
+        except RuntimeError as e:
             assert "aborting the request" in str(e)
