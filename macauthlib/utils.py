@@ -197,9 +197,14 @@ def normalize_request_object(func):
         # A requests.PreparedRequest object?
         elif requests and isinstance(orig_request, requests.PreparedRequest):
             # Copy over only the details needed for the signature.
+            # WebOb doesn't code well with bytes header names,
+            # so we have to be a little careful.
             request = webob.Request.blank(orig_request.url)
             request.method = orig_request.method
-            request.headers.update(iteritems(orig_request.headers))
+            for k, v in iteritems(orig_request.headers):
+                if not isinstance(k, str):
+                    k = k.decode('ascii')
+                request.headers[k] = v
         # A WSGI environ dict?
         elif isinstance(orig_request, dict):
             request = webob.Request(orig_request)
