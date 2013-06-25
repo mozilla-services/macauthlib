@@ -194,10 +194,10 @@ def normalize_request_object(func):
         # Convert the incoming request object into a webob.Request.
         if isinstance(orig_request, webob.Request):
             pass
-        # A requests.Request object?
-        elif requests and isinstance(orig_request, requests.Request):
+        # A requests.PreparedRequest object?
+        elif requests and isinstance(orig_request, requests.PreparedRequest):
             # Copy over only the details needed for the signature.
-            request = webob.Request.blank(orig_request.full_url)
+            request = webob.Request.blank(orig_request.url)
             request.method = orig_request.method
             request.headers.update(iteritems(orig_request.headers))
         # A WSGI environ dict?
@@ -215,7 +215,7 @@ def normalize_request_object(func):
         try:
             return func(request, *args, **kwds)
         finally:
-            if requests and isinstance(orig_request, requests.Request):
+            if requests and isinstance(orig_request, requests.PreparedRequest):
                 orig_request.headers.update(request.headers)
 
     return wrapped_func

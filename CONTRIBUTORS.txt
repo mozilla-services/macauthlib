@@ -1,3 +1,4 @@
 List of contributors:
 
 * Ryan Kelly <rfkelly@mozilla.com>
+* Bobby R. Ward <bobbyrward@gmail.com>

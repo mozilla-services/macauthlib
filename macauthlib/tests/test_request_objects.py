@@ -12,6 +12,7 @@ else:  # pragma: nocover
 
 import webob
 import requests
+import requests.auth
 
 from macauthlib import sign_request, check_signature
 
@@ -94,24 +95,27 @@ class TestRequestObjects(unittest.TestCase):
             params=[("b", "1"), ("a", "2")],
             data="hello world",
         )
+        req = req.prepare()
         assert not check_signature(req, TEST_KEY, nonces=False)
         authz = sign_request(req, TEST_ID, TEST_KEY, params=TEST_PARAMS)
-        assert TEST_SIG in authz
+        assert TEST_SIG in req.headers['Authorization']
         assert check_signature(req, TEST_KEY, nonces=False)
 
-    def test_using_sign_request_as_a_requests_auth_hook(self):
+    def test_using_sign_request_in_a_requests_auth_object(self):
         # We don't actually want to perform the request, so
-        # we have the hook error out once it has run and we
-        # catch-and-ignore that error.
-        def pre_request_hook(req):
-            sign_request(req, TEST_ID, TEST_KEY)
-            assert check_signature(req, TEST_KEY, nonces=False)
-            raise RuntimeError("aborting the request")
+        # we have the auth handler error out once it has run 
+        # and we catch-and-ignore that error.
+        class HTTPMacAuth(requests.auth.AuthBase):
+            def __call__(self, req):
+                sign_request(req, TEST_ID, TEST_KEY, params=TEST_PARAMS)
+                assert check_signature(req, TEST_KEY, nonces=False)
+                assert TEST_SIG in req.headers['Authorization']
+                raise RuntimeError("aborting the request")
 
-        session = requests.session(hooks={"pre_request": pre_request_hook})
         try:
-            session.post("http://example.com/resource/1",
+            requests.post("http://example.com/resource/1",
                          params=[("b", "1"), ("a", "2")],
-                         data="hello world")
+                         data="hello world",
+                         auth=HTTPMacAuth())
         except RuntimeError as e:
             assert "aborting the request" in str(e)
