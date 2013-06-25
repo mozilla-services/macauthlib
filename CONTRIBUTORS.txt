@@ -1,0 +1,3 @@
+List of contributors:
+
+* Ryan Kelly <rfkelly@mozilla.com>
